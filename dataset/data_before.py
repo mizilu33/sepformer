@@ -7,15 +7,16 @@ import numpy as np
 
 class AudioDataset(Dataset):
 
-    def __init__(self, data_dir, json_dir, batch_size, sample_rate, segment):
+    # def __init__(self, data_dir, json_dir, batch_size, sample_rate, segment):
+    def __init__(self, data_dir, sample_rate):
 
         super(AudioDataset, self).__init__()
 
         self.data_dir = data_dir
-        self.json_dir = json_dir
+        # self.json_dir = json_dir
         self.sample_rate = sample_rate
-        self.batch_size = batch_size
-        self.segment = segment
+        # self.batch_size = batch_size
+        # self.segment = segment
         # self.cv_max_len = cv_max_len
 
         file = ["mix", "s1", "s2"]

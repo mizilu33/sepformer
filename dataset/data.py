@@ -16,80 +16,148 @@ import torch
 import torch.utils.data as data
 
 import kaldi_io
-from torch.utils import IGNORE_ID, pad_list
+from src.utils import IGNORE_ID, pad_list
 
+from torch.utils.data import Dataset, DataLoader
+import os
+import librosa
 
-class AudioDataset(data.Dataset):
-    """
-    TODO: this is a little HACK now, put batch_size here now.
-          remove batch_size to dataloader later.
-    """
+class AudioDataset(Dataset):
 
-    def __init__(self, data_json_path, batch_size, max_length_in, max_length_out,
-                 num_batches=0, batch_frames=0):
-        # From: espnet/src/asr/asr_utils.py: make_batchset()
-        """
-        Args:
-            data: espnet/espnet json format file.
-            num_batches: for debug. only use num_batches minibatch but not all.
-        """
+    def __init__(self, data_dir, json_dir, batch_size, sample_rate, segment):
+
         super(AudioDataset, self).__init__()
-        with open(data_json_path, 'rb') as f:
-            data = json.load(f)['utts']
-        # sort it by input lengths (long to short)
-        sorted_data = sorted(data.items(), key=lambda data: int(
-            data[1]['input'][0]['shape'][0]), reverse=True)
-        # change batchsize depending on the input and output length
-        minibatch = []
-        # Method 1: Generate minibatch based on batch_size
-        # i.e. each batch contains #batch_size utterances
-        if batch_frames == 0:
-            start = 0
-            while True:
-                ilen = int(sorted_data[start][1]['input'][0]['shape'][0])
-                olen = int(sorted_data[start][1]['output'][0]['shape'][0])
-                factor = max(int(ilen / max_length_in), int(olen / max_length_out))
-                # if ilen = 1000 and max_length_in = 800
-                # then b = batchsize / 2
-                # and max(1, .) avoids batchsize = 0
-                b = max(1, int(batch_size / (1 + factor)))
-                end = min(len(sorted_data), start + b)
-                minibatch.append(sorted_data[start:end])
-                # DEBUG
-                # total= 0
-                # for i in range(start, end):
-                #     total += int(sorted_data[i][1]['input'][0]['shape'][0])
-                # print(total, end-start)
-                if end == len(sorted_data):
-                    break
-                start = end
-        # Method 2: Generate minibatch based on batch_frames
-        # i.e. each batch contains approximately #batch_frames frames
-        else:  # batch_frames > 0
-            print("NOTE: Generate minibatch based on batch_frames.")
-            print("i.e. each batch contains approximately #batch_frames frames")
-            start = 0
-            while True:
-                total_frames = 0
-                end = start
-                while total_frames < batch_frames and end < len(sorted_data):
-                    ilen = int(sorted_data[end][1]['input'][0]['shape'][0])
-                    total_frames += ilen
-                    end += 1
-                # print(total_frames, end-start)
-                minibatch.append(sorted_data[start:end])
-                if end == len(sorted_data):
-                    break
-                start = end
-        if num_batches > 0:
-            minibatch = minibatch[:num_batches]
-        self.minibatch = minibatch
 
-    def __getitem__(self, index):
-        return self.minibatch[index]
+        self.data_dir = data_dir
+        self.json_dir = json_dir
+        self.sample_rate = sample_rate
+        self.batch_size = batch_size
+        self.segment = segment
+        # self.cv_max_len = cv_max_len
+
+        file = ["mix", "s1", "s2"]
+
+        self.mix_dir = os.path.join(data_dir, file[0])
+        self.mix_list = os.listdir(os.path.abspath(self.mix_dir))
+        # self.json_dir = os.path.join(data_dir, file[0])
+
+        self.s1_dir = os.path.join(data_dir, file[1])
+        self.s1_list = os.listdir(os.path.abspath(self.s1_dir))
+        # self.json_dir = os.path.join(data_dir, file[1])
+
+        self.s2_dir = os.path.join(data_dir, file[2])
+        self.s2_list = os.listdir(os.path.abspath(self.s2_dir))
+
+    def __getitem__(self, item):
+
+        mix_path = os.path.join(self.mix_dir, self.mix_list[item])
+        mix_data = librosa.load(path=mix_path,
+                                sr=self.sample_rate,
+                                mono=True,  # 单通道
+                                offset=0,  # 音频读取起始点
+                                duration=None,  # 获取音频时长
+                                dtype=np.float32,
+                                res_type="kaiser_best",
+                                )[0]
+        length = len(mix_data)
+
+        s1_path = os.path.join(self.s1_dir, self.s1_list[item])
+        s1_data = librosa.load(path=s1_path,
+                               sr=self.sample_rate,
+                               mono=True,  # 单通道
+                               offset=0,  # 音频读取起始点
+                               duration=None,  # 获取音频时长
+                               )[0]
+
+        s2_path = os.path.join(self.s2_dir, self.s2_list[item])
+        s2_data = librosa.load(path=s2_path,
+                               sr=self.sample_rate,
+                               mono=True,  # 单通道
+                               offset=0,  # 音频读取起始点
+                               duration=None,  # 获取音频时长
+                               )[0]
+
+        s_data = np.stack((s1_data, s2_data), axis=0)
+        print(length)
+        return mix_data, length, s_data
 
     def __len__(self):
-        return len(self.minibatch)
+
+        return len(self.mix_list)
+
+
+
+# class AudioDataset(data.Dataset):
+#     """
+#     TODO: this is a little HACK now, put batch_size here now.
+#           remove batch_size to dataloader later.
+#     """
+
+#     def __init__(self, data_json_path, batch_size, max_length_in, max_length_out,
+#                  num_batches=0, batch_frames=0):
+#         # From: espnet/src/asr/asr_utils.py: make_batchset()
+#         """
+#         Args:
+#             data: espnet/espnet json format file.
+#             num_batches: for debug. only use num_batches minibatch but not all.
+#         """
+#         super(AudioDataset, self).__init__()
+#         with open(data_json_path, 'rb') as f:
+#             data = json.load(f)['utts']
+#         # sort it by input lengths (long to short)
+#         sorted_data = sorted(data.items(), key=lambda data: int(
+#             data[1]['input'][0]['shape'][0]), reverse=True)
+#         # change batchsize depending on the input and output length
+#         minibatch = []
+#         # Method 1: Generate minibatch based on batch_size
+#         # i.e. each batch contains #batch_size utterances
+#         if batch_frames == 0:
+#             start = 0
+#             while True:
+#                 ilen = int(sorted_data[start][1]['input'][0]['shape'][0])
+#                 olen = int(sorted_data[start][1]['output'][0]['shape'][0])
+#                 factor = max(int(ilen / max_length_in), int(olen / max_length_out))
+#                 # if ilen = 1000 and max_length_in = 800
+#                 # then b = batchsize / 2
+#                 # and max(1, .) avoids batchsize = 0
+#                 b = max(1, int(batch_size / (1 + factor)))
+#                 end = min(len(sorted_data), start + b)
+#                 minibatch.append(sorted_data[start:end])
+#                 # DEBUG
+#                 # total= 0
+#                 # for i in range(start, end):
+#                 #     total += int(sorted_data[i][1]['input'][0]['shape'][0])
+#                 # print(total, end-start)
+#                 if end == len(sorted_data):
+#                     break
+#                 start = end
+#         # Method 2: Generate minibatch based on batch_frames
+#         # i.e. each batch contains approximately #batch_frames frames
+#         else:  # batch_frames > 0
+#             print("NOTE: Generate minibatch based on batch_frames.")
+#             print("i.e. each batch contains approximately #batch_frames frames")
+#             start = 0
+#             while True:
+#                 total_frames = 0
+#                 end = start
+#                 while total_frames < batch_frames and end < len(sorted_data):
+#                     ilen = int(sorted_data[end][1]['input'][0]['shape'][0])
+#                     total_frames += ilen
+#                     end += 1
+#                 # print(total_frames, end-start)
+#                 minibatch.append(sorted_data[start:end])
+#                 if end == len(sorted_data):
+#                     break
+#                 start = end
+#         if num_batches > 0:
+#             minibatch = minibatch[:num_batches]
+#         self.minibatch = minibatch
+
+#     def __getitem__(self, index):
+#         return self.minibatch[index]
+
+#     def __len__(self):
+#         return len(self.minibatch)
 
 
 class AudioDataLoader(data.DataLoader):
@@ -197,3 +265,57 @@ def build_LFR_features(inputs, m, n):
     return np.vstack(LFR_inputs)
     #     LFR_inputs_batch.append(np.vstack(LFR_inputs))
     # return LFR_inputs_batch
+
+# if __name__ == "__main__":
+
+#     parser = argparse.ArgumentParser(description="Speech Separation")
+
+#     parser.add_argument("-C",
+#                         "--configuration",
+#                         default=f"{MAIN_DIR}/config/train/train.json5",
+#                         type=str,
+#                         help="Configuration (*.json).")
+
+#     args = parser.parse_args()
+
+#     configuration = json5.load(open(args.configuration))
+#     configuration['train_dataset']['data_dir'] = f'{LUNGSOUND_DIR}/{configuration["train_dataset"]["data_dir"]}'
+#     configuration['validation_dataset']['data_dir'] = f'{LUNGSOUND_DIR}/{configuration["validation_dataset"]["data_dir"]}'
+#     configuration["train_dataset"]["train_dir"] = f'{MAIN_DIR}/{configuration["train_dataset"]["train_dir"]}'
+#     configuration["validation_dataset"]["validation_dir"] = f'{MAIN_DIR}/{configuration["validation_dataset"]["validation_dir"]}'
+#     configuration["save_load"]["save_folder"] = f'{MAIN_DIR}/{configuration["save_load"]["save_folder"]}'
+#     # 数据
+#     tr_dataset = AudioDataset(json_dir=config["train_dataset"]["train_dir"],  # 目录下包含 mix.json, s1.json, s2.json
+#                               data_dir=config["train_dataset"]["data_dir"],
+#                               batch_size=config["train_dataset"]["batch_size"],
+#                               sample_rate=config["train_dataset"]["sample_rate"],  # 采样率
+#                               segment=config["train_dataset"]["segment"])  # 语音时长
+                    
+#     cv_dataset = AudioDataset(json_dir=config["validation_dataset"]["validation_dir"],
+#                               data_dir=config["validation_dataset"]["data_dir"],
+#                               batch_size=config["validation_dataset"]["batch_size"],
+#                               sample_rate=config["validation_dataset"]["sample_rate"],
+#                               segment=config["validation_dataset"]["segment"]) # cv_max_len=config["validation_dataset"]["cv_max_len"])
+
+#     # tr_loader = AudioDataLoader(tr_dataset,
+#     #                             batch_size=config["train_loader"]["batch_size"],
+#     #                             shuffle=config["train_loader"]["shuffle"],
+#     #                             num_workers=config["train_loader"]["num_workers"])
+
+#     # cv_loader = AudioDataLoader(cv_dataset,
+#     #                             batch_size=config["validation_loader"]["batch_size"],
+#     #                             shuffle=config["validation_loader"]["shuffle"],
+#     #                             num_workers=config["validation_loader"]["num_workers"])
+
+#     tr_loader = DataLoader(tr_dataset,
+#                                 batch_size=config["train_loader"]["batch_size"],
+#                                 shuffle=config["train_loader"]["shuffle"],
+#                                 num_workers=config["train_loader"]["num_workers"])
+
+#     cv_loader = DataLoader(cv_dataset,
+#                                 batch_size=config["validation_loader"]["batch_size"],
+#                                 shuffle=config["validation_loader"]["shuffle"],
+#                                 num_workers=config["validation_loader"]["num_workers"])
+
+
+#     data = {"tr_loader": tr_loader, "cv_loader": cv_loader}

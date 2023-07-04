@@ -5,6 +5,7 @@ from torch.nn.modules.module import Module
 from torch.autograd import Variable
 import math
 import torch.nn.functional as F
+from const import EncoderLayerID
 
 
 class Encoder(nn.Module):
@@ -85,6 +86,16 @@ class TransformerEncoderLayer(Module):
             >>> src = torch.rand(10, 32, 512)
             >>> out = encoder_layer(src)
     """
+    # id = -1
+    # def __new__(cls, *args, **kwargs):
+    #     global EncoderLayerID
+    #     cls.id = EncoderLayerID
+    #     EncoderLayerID += 1
+    #     # print(f'new;{cls.id}')
+    #     if args is not None:
+    #         return object.__new__(cls, *args)
+    #     elif kwargs is not None:
+    #         return object.__new__(cls, **kwargs)
 
     def __init__(self, d_model, nhead, dropout=0):
 
@@ -116,8 +127,14 @@ class TransformerEncoderLayer(Module):
         z4 = self.LayerNorm2(z3)
 
         z5 = self.Dropout2(self.FeedForward(z4)) + z3
+        torch.cuda.empty_cache()
+
+        input()
+        # del z1, z2, z3, z4
+        # input(f"forawrd[{self.id}]")
 
         return z5
+        # return self.Dropout2(self.FeedForward(self.LayerNorm2(self.Dropout1(self.self_attn(self.LayerNorm1(z), self.LayerNorm1(z), self.LayerNorm1(z), attn_mask=None, key_padding_mask=None)[0]) + z))) + self.Dropout1(self.self_attn(self.LayerNorm1(z), self.LayerNorm1(z), self.LayerNorm1(z), attn_mask=None, key_padding_mask=None)[0]) + z
 
 
 class Positional_Encoding(nn.Module):
@@ -270,7 +287,7 @@ class Separator(nn.Module):
         pad_aux = Variable(torch.zeros(batch_size, dim, segment_stride)).type(input.type())
 
         input = torch.cat([pad_aux, input, pad_aux], 2)
-
+        print("input:", len(input))
         return input, rest
 
     def split_feature(self, input, segment_size):
@@ -341,7 +358,7 @@ class Sepformer(nn.Module):
 
         # Encoding
         x, rest = self.pad_signal(x)  # 补零，torch.Size([1, 1, 32006])
-
+        lengthx = x.shape
         enc_out = self.encoder(x)  # [B, 1, T] -> [B, N, I]，torch.Size([1, 64, 16002])
 
         # Mask estimation
