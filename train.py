@@ -1,12 +1,17 @@
 import argparse
 import torch
+# from dataset.data import AudioDataLoader, AudioDataset
 from dataset.data import AudioDataset
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
+
+
 from src.trainer import Trainer
 from model.sepformer import Sepformer
 import json5
 import numpy as np
 from adamp import AdamP, SGDP
+
+from const import CUDA_ID, MAIN_DIR, LUNGSOUND_DIR
 
 
 def main(config):
@@ -26,6 +31,16 @@ def main(config):
                               sample_rate=config["validation_dataset"]["sample_rate"],
                               segment=config["validation_dataset"]["segment"]) # cv_max_len=config["validation_dataset"]["cv_max_len"])
 
+    # tr_loader = AudioDataLoader(tr_dataset,
+    #                             batch_size=config["train_loader"]["batch_size"],
+    #                             shuffle=config["train_loader"]["shuffle"],
+    #                             num_workers=config["train_loader"]["num_workers"])
+
+    # cv_loader = AudioDataLoader(cv_dataset,
+    #                             batch_size=config["validation_loader"]["batch_size"],
+    #                             shuffle=config["validation_loader"]["shuffle"],
+    #                             num_workers=config["validation_loader"]["num_workers"])
+
     tr_loader = DataLoader(tr_dataset,
                                 batch_size=config["train_loader"]["batch_size"],
                                 shuffle=config["train_loader"]["shuffle"],
@@ -35,6 +50,7 @@ def main(config):
                                 batch_size=config["validation_loader"]["batch_size"],
                                 shuffle=config["validation_loader"]["shuffle"],
                                 num_workers=config["validation_loader"]["num_workers"])
+
 
     data = {"tr_loader": tr_loader, "cv_loader": cv_loader}
 
@@ -51,7 +67,7 @@ def main(config):
         print("No loaded model!")
 
     if torch.cuda.is_available():
-        model = torch.nn.DataParallel(model)
+        model = torch.nn.DataParallel(model, device_ids=[0,1,3])   
         model.cuda()
 
     if config["optimizer"]["type"] == "sgd":
@@ -95,12 +111,18 @@ if __name__ == '__main__':
 
     parser.add_argument("-C",
                         "--configuration",
-                        default="./lungsound/knowledge/sepformer/config/train/train.json5",
+                        default=f"{MAIN_DIR}/config/train/train.json5",
                         type=str,
                         help="Configuration (*.json).")
 
     args = parser.parse_args()
 
     configuration = json5.load(open(args.configuration))
+    configuration['train_dataset']['data_dir'] = f'{LUNGSOUND_DIR}/{configuration["train_dataset"]["data_dir"]}'
+    configuration['validation_dataset']['data_dir'] = f'{LUNGSOUND_DIR}/{configuration["validation_dataset"]["data_dir"]}'
+    configuration["train_dataset"]["train_dir"] = f'{MAIN_DIR}/{configuration["train_dataset"]["train_dir"]}'
+    configuration["validation_dataset"]["validation_dir"] = f'{MAIN_DIR}/{configuration["validation_dataset"]["validation_dir"]}'
+    configuration["save_load"]["save_folder"] = f'{MAIN_DIR}/{configuration["save_load"]["save_folder"]}'
+    # print(configuration)
 
     main(configuration)

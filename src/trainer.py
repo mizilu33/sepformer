@@ -5,9 +5,11 @@ from src.pit_criterion import cal_loss_pit, cal_loss_no, MixerMSE
 from torch.utils.tensorboard import SummaryWriter
 import gc
 
+from const import CUDA_ID
+
 # # cuda.outofmemory
 # import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,0,1"
 
 
 class Trainer(object):
@@ -181,7 +183,12 @@ class Trainer(object):
         for i, (data) in enumerate(data_loader):
 
             padded_mixture, mixture_lengths, padded_source = data
+            print("padded_mixture, mixture_lengths, padded_source:", padded_mixture, mixture_lengths, padded_source)
+            print("padded_mixture.shape", padded_mixture.shape)
+            print("mixture_lengths.shape", mixture_lengths.shape)
+            print("padded_source.shape", padded_source.shape)
 
+            # return xs_pad, ilens, ys_pad
             # 是否使用 GPU 训练
             if torch.cuda.is_available():
                 padded_mixture = padded_mixture.cuda()
