@@ -33,23 +33,37 @@ def preprocess(args):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser("HF_Lung_V1 data preprocessing")
+    parser = argparse.ArgumentParser("Libri2Mix data preprocessing")
     # parser = argparse.ArgumentParser("lungsoun data preprocessing")
 
-    parser.add_argument('--in-dir',
+    # MAIN_DIR = '/home/mzlu/lungsound/sepformer'
+    parser.add_argument('--in_dir',
                         type=str,
-                        default="./lungsound/data/HF_Lung_V1",
-                        help='Directory path of wsj0 including tr, cv and tt')
+                        help='Directory path of Libri2Mix including tr, cv and tt')
 
-    parser.add_argument('--out-dir',
+    parser.add_argument('--out_dir',
                         type=str,
-                        default="./lungsound/data/json",
                         help='Directory path to put output files')
 
-    parser.add_argument('--sample-rate',
+    parser.add_argument('--sample_rate',
                         type=int,
                         default=8000,
                         help='Sample rate of audio file')
+
+    # parser.add_argument('--in_dir',
+    #                     type=str,
+    #                     default=f"{MAIN_DIR}/data/Libri2Mix/wav8k/min",
+    #                     help='Directory path of Libri2Mix including tr, cv and tt')
+
+    # parser.add_argument('--out_dir',
+    #                     type=str,
+    #                     default=f"{MAIN_DIR}/data/Libri2Mix/wav8k/min/json",
+    #                     help='Directory path to put output files')
+
+    # parser.add_argument('--sample_rate',
+    #                     type=int,
+    #                     default=8000,
+    #                     help='Sample rate of audio file')
 
     args = parser.parse_args()
 

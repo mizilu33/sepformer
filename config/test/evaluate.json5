@@ -1,17 +1,27 @@
 {
-  "model": "sandglasset",
+  "model": "sepformer",
 
-  "model_path": "./lungsound/knowledge/sepformer/checkpoint/final.path.tar",
+  "model_path": "checkpoint/final.path.tar",
 
   "evaluate_dataset":
   {
-    "data_dir": "./lungsound/data/json/tt",
+    "data_dir": "data/Libri2Mix/wav8k/min/tt",
+
+    "evaluate_dir": "data/Libri2Mix/wav8k/min/json/tt",
 
     "batch_size": 1,
 
     "sample_rate": 8000,
 
     "segment": -1,
+
+    "start_time": 0,
+  },
+
+  "evaluate_loader":
+  {
+    "batch_size": 1,
+    "num_workers": 1,
   },
 
   "cal_sdr": true,

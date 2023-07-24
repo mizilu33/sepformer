@@ -118,6 +118,7 @@ def cal_loss_pit(source, estimate_source, source_lengths):
     return loss, max_snr, estimate_source, reorder_estimate_source
 
 
+
 def cal_si_snr_with_pit(source, estimate_source, source_lengths):
     """
         Calculate SI-SNR with PIT training.
@@ -237,7 +238,7 @@ if __name__ == "__main__":
     print('estimate_source', estimate_source)
     print('source_lengths', source_lengths)
 
-    loss, max_snr, estimate_source, reorder_estimate_source = cal_loss_no(source, estimate_source, source_lengths)
+    loss, max_snr, estimate_source, reorder_estimate_source = cal_loss_pit(source, estimate_source, source_lengths)
     print('loss', loss)
     print('max_snr', max_snr)
     print('reorder_estimate_source', reorder_estimate_source)

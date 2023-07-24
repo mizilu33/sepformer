@@ -129,7 +129,7 @@ class TransformerEncoderLayer(Module):
         z5 = self.Dropout2(self.FeedForward(z4)) + z3
         torch.cuda.empty_cache()
 
-        input()
+        # input()
         # del z1, z2, z3, z4
         # input(f"forawrd[{self.id}]")
 
@@ -287,7 +287,7 @@ class Separator(nn.Module):
         pad_aux = Variable(torch.zeros(batch_size, dim, segment_stride)).type(input.type())
 
         input = torch.cat([pad_aux, input, pad_aux], 2)
-        print("input:", len(input))
+        # print("input:", len(input))
         return input, rest
 
     def split_feature(self, input, segment_size):
@@ -358,7 +358,7 @@ class Sepformer(nn.Module):
 
         # Encoding
         x, rest = self.pad_signal(x)  # 补零，torch.Size([1, 1, 32006])
-        lengthx = x.shape
+        # lengthx = x.shape
         enc_out = self.encoder(x)  # [B, 1, T] -> [B, N, I]，torch.Size([1, 64, 16002])
 
         # Mask estimation
@@ -466,4 +466,4 @@ if __name__ == "__main__":
 
     y = model(x)
 
-    print(y.shape)
+    # print(y.shape)

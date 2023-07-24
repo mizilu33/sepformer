@@ -21,6 +21,8 @@ from src.utils import IGNORE_ID, pad_list
 from torch.utils.data import Dataset, DataLoader
 import os
 import librosa
+import random
+from random import randint
 
 class AudioDataset(Dataset):
 
@@ -33,6 +35,7 @@ class AudioDataset(Dataset):
         self.sample_rate = sample_rate
         self.batch_size = batch_size
         self.segment = segment
+        # self.start_time = start_time
         # self.cv_max_len = cv_max_len
 
         file = ["mix", "s1", "s2"]
@@ -48,14 +51,19 @@ class AudioDataset(Dataset):
         self.s2_dir = os.path.join(data_dir, file[2])
         self.s2_list = os.listdir(os.path.abspath(self.s2_dir))
 
-    def __getitem__(self, item):
+        start_time = randint(0,10)
+        self.start_time = start_time
 
+    def __getitem__(self, item):
+        
+        
         mix_path = os.path.join(self.mix_dir, self.mix_list[item])
         mix_data = librosa.load(path=mix_path,
                                 sr=self.sample_rate,
                                 mono=True,  # 单通道
-                                offset=0,  # 音频读取起始点
-                                duration=None,  # 获取音频时长
+                                # offset=self.start_time,  # 音频读取起始点
+                                offset=0,
+                                duration=10,  # 获取音频时长
                                 dtype=np.float32,
                                 res_type="kaiser_best",
                                 )[0]
@@ -65,26 +73,31 @@ class AudioDataset(Dataset):
         s1_data = librosa.load(path=s1_path,
                                sr=self.sample_rate,
                                mono=True,  # 单通道
-                               offset=0,  # 音频读取起始点
-                               duration=None,  # 获取音频时长
+                               # offset=self.start_time,  # 音频读取起始点
+                               offset=0,
+                               duration=10,  # 获取音频时长
                                )[0]
 
         s2_path = os.path.join(self.s2_dir, self.s2_list[item])
         s2_data = librosa.load(path=s2_path,
                                sr=self.sample_rate,
                                mono=True,  # 单通道
-                               offset=0,  # 音频读取起始点
-                               duration=None,  # 获取音频时长
+                               # offset=self.start_time,  # 音频读取起始点
+                               offset=0,
+                               duration=10,  # 获取音频时长
                                )[0]
 
         s_data = np.stack((s1_data, s2_data), axis=0)
-        print(length)
+        # print(length)
         return mix_data, length, s_data
 
     def __len__(self):
 
         return len(self.mix_list)
 
+# -----------------------------------这是分界线----------------------------------
+
+""" 以下是xukaituo的data.py """
 
 
 # class AudioDataset(data.Dataset):
@@ -160,111 +173,112 @@ class AudioDataset(Dataset):
 #         return len(self.minibatch)
 
 
-class AudioDataLoader(data.DataLoader):
-    """
-    NOTE: just use batchsize=1 here, so drop_last=True makes no sense here.
-    """
+# class AudioDataLoader(data.DataLoader):
+#     """
+#     NOTE: just use batchsize=1 here, so drop_last=True makes no sense here.
+#     """
 
-    def __init__(self, *args, LFR_m=1, LFR_n=1, **kwargs):
-        super(AudioDataLoader, self).__init__(*args, **kwargs)
-        self.collate_fn = LFRCollate(LFR_m=LFR_m, LFR_n=LFR_n)
-
-
-class LFRCollate(object):
-    """Build this wrapper to pass arguments(LFR_m, LFR_n) to _collate_fn"""
-    def __init__(self, LFR_m=1, LFR_n=1):
-        self.LFR_m = LFR_m
-        self.LFR_n = LFR_n
-
-    def __call__(self, batch):
-        return _collate_fn(batch, LFR_m=self.LFR_m, LFR_n=self.LFR_n)
+#     def __init__(self, *args, LFR_m=1, LFR_n=1, **kwargs):
+#         super(AudioDataLoader, self).__init__(*args, **kwargs)
+#         self.collate_fn = LFRCollate(LFR_m=LFR_m, LFR_n=LFR_n)
 
 
-# From: espnet/src/asr/asr_pytorch.py: CustomConverter:__call__
-def _collate_fn(batch, LFR_m=1, LFR_n=1):
-    """
-    Args:
-        batch: list, len(batch) = 1. See AudioDataset.__getitem__()
-    Returns:
-        xs_pad: N x Ti x D, torch.Tensor
-        ilens : N, torch.Tentor
-        ys_pad: N x To, torch.Tensor
-    """
-    # batch should be located in list
-    assert len(batch) == 1
-    batch = load_inputs_and_targets(batch[0], LFR_m=LFR_m, LFR_n=LFR_n)
-    xs, ys = batch
+# class LFRCollate(object):
+#     """Build this wrapper to pass arguments(LFR_m, LFR_n) to _collate_fn"""
+#     def __init__(self, LFR_m=1, LFR_n=1):
+#         self.LFR_m = LFR_m
+#         self.LFR_n = LFR_n
 
-    # TODO: perform subsamping
-
-    # get batch of lengths of input sequences
-    ilens = np.array([x.shape[0] for x in xs])
-
-    # perform padding and convert to tensor
-    xs_pad = pad_list([torch.from_numpy(x).float() for x in xs], 0)
-    ilens = torch.from_numpy(ilens)
-    ys_pad = pad_list([torch.from_numpy(y).long() for y in ys], IGNORE_ID)
-    return xs_pad, ilens, ys_pad
+#     def __call__(self, batch):
+#         return _collate_fn(batch, LFR_m=self.LFR_m, LFR_n=self.LFR_n)
 
 
-# ------------------------------ utils ------------------------------------
-def load_inputs_and_targets(batch, LFR_m=1, LFR_n=1):
-    # From: espnet/src/asr/asr_utils.py: load_inputs_and_targets
-    # load acoustic features and target sequence of token ids
-    # for b in batch:
-    #     print(b[1]['input'][0]['feat'])
-    xs = [kaldi_io.read_mat(b[1]['input'][0]['feat']) for b in batch]
-    ys = [b[1]['output'][0]['tokenid'].split() for b in batch]
+# # From: espnet/src/asr/asr_pytorch.py: CustomConverter:__call__
+# def _collate_fn(batch, LFR_m=1, LFR_n=1):
+#     """
+#     Args:
+#         batch: list, len(batch) = 1. See AudioDataset.__getitem__()
+#     Returns:
+#         xs_pad: N x Ti x D, torch.Tensor
+#         ilens : N, torch.Tentor
+#         ys_pad: N x To, torch.Tensor
+#     """
+#     # batch should be located in list
+#     assert len(batch) == 1
+#     batch = load_inputs_and_targets(batch[0], LFR_m=LFR_m, LFR_n=LFR_n)
+#     xs, ys = batch
 
-    if LFR_m != 1 or LFR_n != 1:
-        # xs = build_LFR_features(xs, LFR_m, LFR_n)
-        xs = [build_LFR_features(x, LFR_m, LFR_n) for x in xs]
+#     # TODO: perform subsamping
 
-    # get index of non-zero length samples
-    nonzero_idx = filter(lambda i: len(ys[i]) > 0, range(len(xs)))
-    # sort in input lengths
-    nonzero_sorted_idx = sorted(nonzero_idx, key=lambda i: -len(xs[i]))
-    if len(nonzero_sorted_idx) != len(xs):
-        print("warning: Target sequences include empty tokenid")
+#     # get batch of lengths of input sequences
+#     ilens = np.array([x.shape[0] for x in xs])
 
-    # remove zero-lenght samples
-    xs = [xs[i] for i in nonzero_sorted_idx]
-    ys = [np.fromiter(map(int, ys[i]), dtype=np.int64)
-          for i in nonzero_sorted_idx]
-
-    return xs, ys
+#     # perform padding and convert to tensor
+#     xs_pad = pad_list([torch.from_numpy(x).float() for x in xs], 0)
+#     ilens = torch.from_numpy(ilens)
+#     ys_pad = pad_list([torch.from_numpy(y).long() for y in ys], IGNORE_ID)
+#     return xs_pad, ilens, ys_pad
 
 
-def build_LFR_features(inputs, m, n):
-    """
-    Actually, this implements stacking frames and skipping frames.
-    if m = 1 and n = 1, just return the origin features.
-    if m = 1 and n > 1, it works like skipping.
-    if m > 1 and n = 1, it works like stacking but only support right frames.
-    if m > 1 and n > 1, it works like LFR.
+# # ------------------------------ utils ------------------------------------
+# def load_inputs_and_targets(batch, LFR_m=1, LFR_n=1):
+#     # From: espnet/src/asr/asr_utils.py: load_inputs_and_targets
+#     # load acoustic features and target sequence of token ids
+#     for b in batch:
+#         print("b.shape:", b.shape)
+#         print(b[1]['input'][0]['feat'])
+#     xs = [kaldi_io.read_mat(b[1]['input'][0]['feat']) for b in batch]
+#     ys = [b[1]['output'][0]['tokenid'].split() for b in batch]
 
-    Args:
-        inputs_batch: inputs is T x D np.ndarray
-        m: number of frames to stack
-        n: number of frames to skip
-    """
-    # LFR_inputs_batch = []
-    # for inputs in inputs_batch:
-    LFR_inputs = []
-    T = inputs.shape[0]
-    T_lfr = int(np.ceil(T / n))
-    for i in range(T_lfr):
-        if m <= T - i * n:
-            LFR_inputs.append(np.hstack(inputs[i*n:i*n+m]))
-        else: # process last LFR frame
-            num_padding = m - (T - i * n)
-            frame = np.hstack(inputs[i*n:])
-            for _ in range(num_padding):
-                frame = np.hstack((frame, inputs[-1]))
-            LFR_inputs.append(frame)
-    return np.vstack(LFR_inputs)
-    #     LFR_inputs_batch.append(np.vstack(LFR_inputs))
-    # return LFR_inputs_batch
+#     if LFR_m != 1 or LFR_n != 1:
+#         # xs = build_LFR_features(xs, LFR_m, LFR_n)
+#         xs = [build_LFR_features(x, LFR_m, LFR_n) for x in xs]
+
+#     # get index of non-zero length samples
+#     nonzero_idx = filter(lambda i: len(ys[i]) > 0, range(len(xs)))
+#     # sort in input lengths
+#     nonzero_sorted_idx = sorted(nonzero_idx, key=lambda i: -len(xs[i]))
+#     if len(nonzero_sorted_idx) != len(xs):
+#         print("warning: Target sequences include empty tokenid")
+
+#     # remove zero-lenght samples
+#     xs = [xs[i] for i in nonzero_sorted_idx]
+#     ys = [np.fromiter(map(int, ys[i]), dtype=np.int64)
+#           for i in nonzero_sorted_idx]
+
+#     return xs, ys
+
+
+# def build_LFR_features(inputs, m, n):
+#     """
+#     Actually, this implements stacking frames and skipping frames.
+#     if m = 1 and n = 1, just return the origin features.
+#     if m = 1 and n > 1, it works like skipping.
+#     if m > 1 and n = 1, it works like stacking but only support right frames.
+#     if m > 1 and n > 1, it works like LFR.
+
+#     Args:
+#         inputs_batch: inputs is T x D np.ndarray
+#         m: number of frames to stack
+#         n: number of frames to skip
+#     """
+#     # LFR_inputs_batch = []
+#     # for inputs in inputs_batch:
+#     LFR_inputs = []
+#     T = inputs.shape[0]
+#     T_lfr = int(np.ceil(T / n))
+#     for i in range(T_lfr):
+#         if m <= T - i * n:
+#             LFR_inputs.append(np.hstack(inputs[i*n:i*n+m]))
+#         else: # process last LFR frame
+#             num_padding = m - (T - i * n)
+#             frame = np.hstack(inputs[i*n:])
+#             for _ in range(num_padding):
+#                 frame = np.hstack((frame, inputs[-1]))
+#             LFR_inputs.append(frame)
+#     return np.vstack(LFR_inputs)
+#     #     LFR_inputs_batch.append(np.vstack(LFR_inputs))
+#     # return LFR_inputs_batch
 
 # if __name__ == "__main__":
 

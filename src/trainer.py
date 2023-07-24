@@ -7,9 +7,11 @@ import gc
 
 from const import CUDA_ID
 
+import wandb
+
 # # cuda.outofmemory
 # import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,0,1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "3,0,1,2"
 
 
 class Trainer(object):
@@ -26,6 +28,7 @@ class Trainer(object):
         self.half_lr = config["train"]["half_lr"]  # 是否调整学习率
         self.early_stop = config["train"]["early_stop"]  # 是否早停
         self.max_norm = config["train"]["max_norm"]  # L2 范数
+        self.batch_size=config["validation_loader"]["batch_size"]
 
         # save and load model
         self.save_folder = config["save_load"]["save_folder"]  # 模型保存路径
@@ -49,10 +52,19 @@ class Trainer(object):
 
         # 可视化
         self.write = SummaryWriter("./lungsound/knowledge/sepformer/logs")
+        # self.log = wandb_logger
+        # self.log.config.update(dict(epoch=self.epochs, lr=self.half_lr, batch_size=self.batch_size))
 
         self._reset()
 
         self.MixerMSE = MixerMSE()
+
+        # # wandb
+        # self.wandb_logger = wandb.init(
+        #     project= "sepformer-ls",
+        #     name="test",
+        #     config=config
+        # )
 
     def _reset(self):
         if self.continue_from:
@@ -95,6 +107,8 @@ class Trainer(object):
             print('-' * 85)
             print('End of Epoch {0} | Time {1:.2f}s | Train Loss {2:.3f}'.format(epoch+1, run_time, tr_loss))
             print('-' * 85)
+            # self.wandb_logger.log('train_loss', tr_loss, on_step=True, on_epoch=True, prog_bar=True,logger=True)
+
 
             if self.checkpoint:
                 # 保存每一个训练模型
@@ -122,12 +136,16 @@ class Trainer(object):
 
             self.write.add_scalar("validation loss", val_loss, epoch+1)
 
+            
+            self.writer.close()
+
             end_time = time.time()  # 验证结束时间
             run_time = end_time - start_time  # 训练时间
 
             print('-' * 85)
             print('End of Epoch {0} | Time {1:.2f}s | ''Valid Loss {2:.3f}'.format(epoch+1, run_time, val_loss))
             print('-' * 85)
+            # self.wandb_logger.log('val_loss', val_loss, on_step=True, on_epoch=True, prog_bar=True,logger=True)
 
             # 是否调整学习率
             if self.half_lr:
@@ -183,10 +201,10 @@ class Trainer(object):
         for i, (data) in enumerate(data_loader):
 
             padded_mixture, mixture_lengths, padded_source = data
-            print("padded_mixture, mixture_lengths, padded_source:", padded_mixture, mixture_lengths, padded_source)
-            print("padded_mixture.shape", padded_mixture.shape)
-            print("mixture_lengths.shape", mixture_lengths.shape)
-            print("padded_source.shape", padded_source.shape)
+            # print("padded_mixture, mixture_lengths, padded_source:", padded_mixture, mixture_lengths, padded_source)
+            # print("padded_mixture.shape", padded_mixture.shape)
+            # print("mixture_lengths.shape", mixture_lengths.shape)
+            # print("padded_source.shape", padded_source.shape)
 
             # return xs_pad, ilens, ys_pad
             # 是否使用 GPU 训练
