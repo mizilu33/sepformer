@@ -5,7 +5,7 @@ from torch.nn.modules.module import Module
 from torch.autograd import Variable
 import math
 import torch.nn.functional as F
-from const import EncoderLayerID
+# from const import EncoderLayerID
 
 
 class Encoder(nn.Module):
@@ -34,11 +34,11 @@ class Encoder(nn.Module):
 
     def forward(self, x):
 
-        x = self.Conv1d(x)
+        self.x = self.Conv1d(x)
 
-        x = self.ReLU(x)
+        self.x = self.ReLU(self.x)
 
-        return x
+        return self.x
 
 
 class Decoder(nn.Module):
@@ -60,9 +60,9 @@ class Decoder(nn.Module):
 
     def forward(self, x):
 
-        x = self.ConvTranspose1d(x)
+        self.x = self.ConvTranspose1d(x)
 
-        return x
+        return self.x
 
 
 class TransformerEncoderLayer(Module):
@@ -118,15 +118,15 @@ class TransformerEncoderLayer(Module):
 
     def forward(self, z):
 
-        z1 = self.LayerNorm1(z)
+        self.z1 = self.LayerNorm1(z)
 
-        z2 = self.self_attn(z1, z1, z1, attn_mask=None, key_padding_mask=None)[0]
+        self.z2 = self.self_attn(self.z1, self.z1, self.z1, attn_mask=None, key_padding_mask=None)[0]
 
-        z3 = self.Dropout1(z2) + z
+        self.z3 = self.Dropout1(self.z2) + z
 
-        z4 = self.LayerNorm2(z3)
+        self.z4 = self.LayerNorm2(self.z3)
 
-        z5 = self.Dropout2(self.FeedForward(z4)) + z3
+        z5 = self.Dropout2(self.FeedForward(self.z4)) + self.z3
         torch.cuda.empty_cache()
 
         # input()
@@ -157,19 +157,19 @@ class Positional_Encoding(nn.Module):
 
     def forward(self, x):
 
-        x = x.permute(0, 2, 1).contiguous()
+        self.x = x.permute(0, 2, 1).contiguous()
 
         # x is seq_len, batch, channels
         # x = x + self.pe[:x.size(0), :]
 
         # x is batch, channels, seq_len
-        x = x + self.pe[:, :, :x.size(2)]
+        self.x = self.x + self.pe[:, :, :self.x.size(2)]
 
-        x = self.dropout(x)
+        self.x = self.dropout(self.x)
 
-        x = x.permute(0, 2, 1).contiguous()
+        self.x = self.x.permute(0, 2, 1).contiguous()
 
-        return x
+        return self.x
 
 
 class DPTBlock(nn.Module):
@@ -199,26 +199,26 @@ class DPTBlock(nn.Module):
         B, N, K, P = z.shape
 
         # intra DPT
-        row_z = z.permute(0, 3, 2, 1).contiguous().view(B*P, K, N)
-        row_z1 = self.intra_PositionalEncoding(row_z)
+        self.row_z = z.permute(0, 3, 2, 1).contiguous().view(B*P, K, N)
+        self.row_z1 = self.intra_PositionalEncoding(self.row_z)
 
         for i in range(self.Local_B):
-            row_z1 = self.intra_transformer[i](row_z1.permute(1, 0, 2).contiguous()).permute(1, 0, 2).contiguous()
+            self.row_z1 = self.intra_transformer[i](self.row_z1.permute(1, 0, 2).contiguous()).permute(1, 0, 2).contiguous()
 
-        row_f = row_z1 + row_z
-        row_output = row_f.view(B, P, K, N).permute(0, 3, 2, 1).contiguous()
+        self.row_f = self.row_z1 + self.row_z
+        self.row_output = self.row_f.view(B, P, K, N).permute(0, 3, 2, 1).contiguous()
 
         # inter DPT
-        col_z = row_output.permute(0, 2, 3, 1).contiguous().view(B*K, P, N)
-        col_z1 = self.inter_PositionalEncoding(col_z)
+        self.col_z = self.row_output.permute(0, 2, 3, 1).contiguous().view(B*K, P, N)
+        self.col_z1 = self.inter_PositionalEncoding(self.col_z)
 
         for i in range(self.Local_B):
-            col_z1 = self.inter_transformer[i](col_z1.permute(1, 0, 2).contiguous()).permute(1, 0, 2).contiguous()
+            self.col_z1 = self.inter_transformer[i](self.col_z1.permute(1, 0, 2).contiguous()).permute(1, 0, 2).contiguous()
 
-        col_f = col_z1 + col_z
-        col_output = col_f.view(B, K, P, N).permute(0, 3, 1, 2).contiguous()
+        self.col_f = self.col_z1 + self.col_z
+        self.col_output = self.col_f.view(B, K, P, N).permute(0, 3, 1, 2).contiguous()
 
-        return col_output
+        return self.col_output
 
 
 class Separator(nn.Module):
@@ -249,27 +249,27 @@ class Separator(nn.Module):
     def forward(self, x):
 
         # Norm + Linear
-        x = self.LayerNorm(x.permute(0, 2, 1).contiguous())  # [B, C, L] => [B, L, C]
-        x = self.Linear1(x).permute(0, 2, 1).contiguous()  # [B, L, C] => [B, C, L]
+        self.x = self.LayerNorm(x.permute(0, 2, 1).contiguous())  # [B, C, L] => [B, L, C]
+        self.x = self.Linear1(self.x).permute(0, 2, 1).contiguous()  # [B, L, C] => [B, C, L]
 
         # Chunking
-        out, gap = self.split_feature(x, self.K)  # [B, C, L] => [B, C, K, S]
+        self.out, self.gap = self.split_feature(self.x, self.K)  # [B, C, L] => [B, C, K, S]
 
         # SepFormer
         for i in range(self.Global_B):
-            out = self.SepFormer[i](out)  # [B, C, K, S]
+            self.out = self.SepFormer[i](self.out)  # [B, C, K, S]
 
-        out = self.Conv2d(self.PReLU(out))  # [B, N, K, S] -> [B, N*C, K, S], torch.Size([1, 128, 250, 130])
+        self.out = self.Conv2d(self.PReLU(self.out))  # [B, N, K, S] -> [B, N*C, K, S], torch.Size([1, 128, 250, 130])
 
-        B, _, K, S = out.shape
-        out = out.view(B, -1, self.C, K, S).permute(0, 2, 1, 3, 4).contiguous()  # [B, N*C, K, S] -> [B, N, C, K, S]
-        out = out.view(B*self.C, -1, K, S)
-        out = self.merge_feature(out, gap)  # [B*C, N, K, S]  -> [B*C, N, L]
+        B, _, K, S = self.out.shape
+        self.out = self.out.view(B, -1, self.C, K, S).permute(0, 2, 1, 3, 4).contiguous()  # [B, N*C, K, S] -> [B, N, C, K, S]
+        self.out = self.out.view(B*self.C, -1, K, S)
+        self.out = self.merge_feature(self.out, self.gap)  # [B*C, N, K, S]  -> [B*C, N, L]
 
-        out = F.relu(self.output(out)*self.output_gate(out))
-        out = F.relu(out)
+        self.out = F.relu(self.output(self.out)*self.output_gate(self.out))
+        self.out = F.relu(self.out)
 
-        return out
+        return self.out
 
     def pad_segment(self, input, segment_size):
 
@@ -357,28 +357,28 @@ class Sepformer(nn.Module):
     def forward(self, x):
 
         # Encoding
-        x, rest = self.pad_signal(x)  # 补零，torch.Size([1, 1, 32006])
+        self.x, self.rest = self.pad_signal(x)  # 补零，torch.Size([1, 1, 32006])
         # lengthx = x.shape
-        enc_out = self.encoder(x)  # [B, 1, T] -> [B, N, I]，torch.Size([1, 64, 16002])
+        self.enc_out = self.encoder(self.x)  # [B, 1, T] -> [B, N, I]，torch.Size([1, 64, 16002])
 
         # Mask estimation
-        masks = self.separator(enc_out)  # [B, N, I] -> [B*C, N, I]，torch.Size([2, 64, 16002])
+        self.masks = self.separator(self.enc_out)  # [B, N, I] -> [B*C, N, I]，torch.Size([2, 64, 16002])
 
-        _, N, I = masks.shape
+        _, N, I = self.masks.shape
 
-        masks = masks.view(self.C, -1, N, I)  # [C, B, N, I]，torch.Size([2, 1, 64, 16002])
+        self.masks = self.masks.view(self.C, -1, N, I)  # [C, B, N, I]，torch.Size([2, 1, 64, 16002])
 
         # Masking
-        out = [masks[i] * enc_out for i in range(self.C)]  # C * ([B, N, I]) * [B, N, I]
+        self.out = [self.masks[i] * self.enc_out for i in range(self.C)]  # C * ([B, N, I]) * [B, N, I]
 
         # Decoding
-        audio = [self.decoder(out[i]) for i in range(self.C)]  # C * [B, 1, T]
+        self.audio = [self.decoder(self.out[i]) for i in range(self.C)]  # C * [B, 1, T]
 
-        audio[0] = audio[0][:, :, self.L // 2:-(rest + self.L // 2)].contiguous()  # B, 1, T
-        audio[1] = audio[1][:, :, self.L // 2:-(rest + self.L // 2)].contiguous()  # B, 1, T
-        audio = torch.cat(audio, dim=1)  # [B, C, T]
+        self.audio[0] = self.audio[0][:, :, self.L // 2:-(self.rest + self.L // 2)].contiguous()  # B, 1, T
+        self.audio[1] = self.audio[1][:, :, self.L // 2:-(self.rest + self.L // 2)].contiguous()  # B, 1, T
+        self.audio = torch.cat(self.audio, dim=1)  # [B, C, T]
 
-        return audio
+        return self.audio
 
     def pad_signal(self, input):
 
@@ -466,4 +466,4 @@ if __name__ == "__main__":
 
     y = model(x)
 
-    # print(y.shape)
+    print(y.shape)

@@ -1,0 +1,6 @@
+# .gitignore
+data/
+checkpoint/
+exp1/
+lungsound/
+outlog/

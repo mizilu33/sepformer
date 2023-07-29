@@ -1,15 +1,15 @@
 {
-  "model_path": "./lungsound/knowledge/sepformer/checkpoint/final.path.tar",
+  "model_path": "checkpoint/final.path.tar",
 
-  "mix_dir": "dataset/min/tt/mix",
+  "mix_dir": "data/Libri2Mix/wav8k/min/tt/mix",
 
-  "mix_json": "dataset/json/tt/mix.json",
+  "mix_json": "data/Libri2Mix/wav8k/min/json/tt/mix.json",
 
-  "out_dir": "./result",
+  "out_dir": "result",
 
-  "model": "sandglasset",
+  "model": "sepformer",
 
-  "use_cuda": false,
+  "use_cuda": true,
 
   "sample_rate": 8000,
 

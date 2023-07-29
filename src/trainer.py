@@ -7,9 +7,11 @@ import gc
 
 from const import CUDA_ID
 
+import wandb
+
 # # cuda.outofmemory
 # import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,0,1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "3,0,1,2"
 
 
 class Trainer(object):
@@ -26,6 +28,7 @@ class Trainer(object):
         self.half_lr = config["train"]["half_lr"]  # 是否调整学习率
         self.early_stop = config["train"]["early_stop"]  # 是否早停
         self.max_norm = config["train"]["max_norm"]  # L2 范数
+        self.batch_size=config["validation_loader"]["batch_size"]
 
         # save and load model
         self.save_folder = config["save_load"]["save_folder"]  # 模型保存路径
@@ -49,10 +52,19 @@ class Trainer(object):
 
         # 可视化
         self.write = SummaryWriter("./lungsound/knowledge/sepformer/logs")
+        # self.log = wandb_logger
+        # self.log.config.update(dict(epoch=self.epochs, lr=self.half_lr, batch_size=self.batch_size))
 
         self._reset()
 
         self.MixerMSE = MixerMSE()
+
+        # # wandb
+        # self.wandb_logger = wandb.init(
+        #     project= "sepformer-ls",
+        #     name="test",
+        #     config=config
+        # )
 
     def _reset(self):
         if self.continue_from:
@@ -62,8 +74,8 @@ class Trainer(object):
 
             if isinstance(self.model, torch.nn.DataParallel):
                 self.model = self.model.module
-
             self.model.load_state_dict(package['state_dict'])
+            self.model = torch.nn.DataParallel(self.model)
             self.optimizer.load_state_dict(package['optim_dict'])
 
             self.start_epoch = int(package.get('epoch', 1))
@@ -77,7 +89,6 @@ class Trainer(object):
     def train(self):
         for epoch in range(self.start_epoch, self.epochs):
             print("Train Start...")
-
             self.model.train()  # 将模型设置为训练模式
 
             start_time = time.time()  # 训练起始时间
@@ -95,21 +106,23 @@ class Trainer(object):
             print('-' * 85)
             print('End of Epoch {0} | Time {1:.2f}s | Train Loss {2:.3f}'.format(epoch+1, run_time, tr_loss))
             print('-' * 85)
-
+            # self.wandb_logger.log('train_loss', tr_loss, on_step=True, on_epoch=True, prog_bar=True,logger=True)
             if self.checkpoint:
                 # 保存每一个训练模型
                 file_path = os.path.join(self.save_folder, 'epoch%d.pth.tar' % (epoch + 1))
 
-                if self.continue_from == "":
-                    if isinstance(self.model, torch.nn.DataParallel):
-                        self.model = self.model.module
-
-                torch.save(self.model.serialize(self.model,
-                                                self.optimizer,
-                                                epoch + 1,
-                                                tr_loss=self.tr_loss,
-                                                cv_loss=self.cv_loss), file_path)
-
+                if isinstance(self.model, torch.nn.DataParallel):
+                    torch.save(self.model.module.serialize(self.model.module,
+                                                    self.optimizer,
+                                                    epoch + 1,
+                                                    tr_loss=self.tr_loss,
+                                                    cv_loss=self.cv_loss), file_path)
+                else:
+                    torch.save(self.model.serialize(self.model,
+                                                    self.optimizer,
+                                                    epoch + 1,
+                                                    tr_loss=self.tr_loss,
+                                                    cv_loss=self.cv_loss), file_path)
                 print('Saving checkpoint model to %s' % file_path)
 
             print('Cross validation Start...')
@@ -118,9 +131,13 @@ class Trainer(object):
 
             start_time = time.time()  # 验证开始时间
 
-            val_loss = self._run_one_epoch(epoch, cross_valid=True)  # 验证模型
+            with torch.no_grad():
+                val_loss = self._run_one_epoch(epoch, cross_valid=True)  # 验证模型
 
             self.write.add_scalar("validation loss", val_loss, epoch+1)
+
+            
+            self.write.close()
 
             end_time = time.time()  # 验证结束时间
             run_time = end_time - start_time  # 训练时间
@@ -128,6 +145,7 @@ class Trainer(object):
             print('-' * 85)
             print('End of Epoch {0} | Time {1:.2f}s | ''Valid Loss {2:.3f}'.format(epoch+1, run_time, val_loss))
             print('-' * 85)
+            # self.wandb_logger.log('val_loss', val_loss, on_step=True, on_epoch=True, prog_bar=True,logger=True)
 
             # 是否调整学习率
             if self.half_lr:
@@ -165,16 +183,21 @@ class Trainer(object):
 
                 file_path = os.path.join(self.save_folder, self.model_path)
 
-                torch.save(self.model.serialize(self.model,
-                                                self.optimizer,
-                                                epoch + 1,
-                                                tr_loss=self.tr_loss,
-                                                cv_loss=self.cv_loss), file_path)
-
+                if isinstance(self.model, torch.nn.DataParallel):
+                    torch.save(self.model.module.serialize(self.model.module,
+                                                    self.optimizer,
+                                                    epoch + 1,
+                                                    tr_loss=self.tr_loss,
+                                                    cv_loss=self.cv_loss), file_path)
+                else:
+                    torch.save(self.model.serialize(self.model,
+                                self.optimizer,
+                                epoch + 1,
+                                tr_loss=self.tr_loss,
+                                cv_loss=self.cv_loss), file_path)
                 print("Find better validated model, saving to %s" % file_path)
 
     def _run_one_epoch(self, epoch, cross_valid=False):
-
         start_time = time.time()
 
         total_loss = 0
@@ -182,11 +205,11 @@ class Trainer(object):
 
         for i, (data) in enumerate(data_loader):
 
-            padded_mixture, mixture_lengths, padded_source = data
-            print("padded_mixture, mixture_lengths, padded_source:", padded_mixture, mixture_lengths, padded_source)
-            print("padded_mixture.shape", padded_mixture.shape)
-            print("mixture_lengths.shape", mixture_lengths.shape)
-            print("padded_source.shape", padded_source.shape)
+            padded_mixture, mixture_lengths, padded_source, s1_path = data
+            # print("padded_mixture, mixture_lengths, padded_source:", padded_mixture, mixture_lengths, padded_source)
+            # print("padded_mixture.shape", padded_mixture.shape)
+            # print("mixture_lengths.shape", mixture_lengths.shape)
+            # print("padded_source.shape", padded_source.shape)
 
             # return xs_pad, ilens, ys_pad
             # 是否使用 GPU 训练
@@ -231,5 +254,11 @@ class Trainer(object):
                     loss.item(),
                     run_time/(i+1)),
                     flush=True)
+
+            if loss.item() > total_loss/(i+1):
+                # print(s1_path)
+                # file_name_s1 = os.path.split(s1_path)[1]
+                # print(file_name_s1)
+                print("s1_path:{0}--loss:{1:3f}".format(s1_path, loss.item()))
 
         return total_loss/(i+1)

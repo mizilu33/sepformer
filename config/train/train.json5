@@ -3,18 +3,18 @@
 
   "train_dataset":
   {
-    "data_dir": "data/HF_Lung_V1/tr",
-    "train_dir": "json/tr",
-    "batch_size": 1,
+    "data_dir": "data/Libri2Mix/wav8k/min/tr",
+    "train_dir": "data/Libri2Mix/wav8k/min/json_tr100/tr",
+    "batch_size": 2,
     "sample_rate": 8000,
     "segment": -1,
   },
 
   "validation_dataset":
   {
-    "data_dir": "data/HF_Lung_V1/cv",
-    "validation_dir": "json/cv",
-    "batch_size": 1,
+    "data_dir": "data/Libri2Mix/wav8k/min/cv",
+    "validation_dir": "data/Libri2Mix/wav8k/min/json_tr100/cv",
+    "batch_size": 2,
     "sample_rate": 8000,
     "segment": -1,
     "cv_max_len": 15,
@@ -22,16 +22,16 @@
 
   "train_loader":
   {
-   "batch_size": 1,
+   "batch_size": 2,
    "shuffle": true,
-   "num_workers": 1,
+   "num_workers": 0,
   },
 
   "validation_loader":
   {
-    "batch_size": 1,
+    "batch_size": 32,
     "shuffle": true,
-    "num_workers": 1,
+    "num_workers": 0,
   },
 
   "model":
@@ -52,7 +52,7 @@
 
   "train":
   {
-    "use_cuda": false,
+    "use_cuda": true,
     "epochs": 100,
     "half_lr": true,
     "early_stop": true,
@@ -87,7 +87,7 @@
 
     "adamp":
     {
-      "lr":0.001,
+      "lr":0.002,
       "beta1":0.9,
       "beta2":0.999,
       "weight_decay":1e-2,
@@ -96,7 +96,7 @@
 
   "save_load":
   {
-    "save_folder": "checkpoint/",
+    "save_folder": "exp3_0729_1205/checkpoint/",
     "checkpoint": true,
     "continue_from": "",
     "model_path": "final.path.tar",
@@ -104,6 +104,6 @@
 
   "logging":
   {
-    "print_freq": 1,
+    "print_freq": 100,
   }
 }

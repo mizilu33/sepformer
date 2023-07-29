@@ -3,7 +3,7 @@ import torch
 # from dataset.data import AudioDataLoader, AudioDataset
 from dataset.data import AudioDataset
 from torch.utils.data import Dataset, DataLoader
-import os
+
 
 from src.trainer import Trainer
 from model.sepformer import Sepformer
@@ -14,30 +14,23 @@ from adamp import AdamP, SGDP
 from const import CUDA_ID, MAIN_DIR, LUNGSOUND_DIR
 
 import wandb
-from random import randint
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "3,2"
 
 def main(config):
     torch.manual_seed(config["seed"])
     np.random.seed(config["seed"])
-    # start_time = randint(0,10)
+
     # 数据
     tr_dataset = AudioDataset(json_dir=config["train_dataset"]["train_dir"],  # 目录下包含 mix.json, s1.json, s2.json
                               data_dir=config["train_dataset"]["data_dir"],
                               batch_size=config["train_dataset"]["batch_size"],
                               sample_rate=config["train_dataset"]["sample_rate"],  # 采样率
-                              segment=config["train_dataset"]["segment"],
-                            #   start_time=start_time
-                              )  # 语音时长
+                              segment=config["train_dataset"]["segment"])  # 语音时长
                     
     cv_dataset = AudioDataset(json_dir=config["validation_dataset"]["validation_dir"],
                               data_dir=config["validation_dataset"]["data_dir"],
                               batch_size=config["validation_dataset"]["batch_size"],
                               sample_rate=config["validation_dataset"]["sample_rate"],
-                              segment=config["validation_dataset"]["segment"],
-                            #   start_time=start_time
-                              ) # cv_max_len=config["validation_dataset"]["cv_max_len"])
+                              segment=config["validation_dataset"]["segment"]) # cv_max_len=config["validation_dataset"]["cv_max_len"])
 
     # tr_loader = AudioDataLoader(tr_dataset,
     #                             batch_size=config["train_loader"]["batch_size"],
@@ -62,13 +55,12 @@ def main(config):
 
     data = {"tr_loader": tr_loader, "cv_loader": cv_loader}
 
-    # # wandb
-    # wandb_logger = wandb.init(
-    #     project= "sepformer-ls",
-    #     name="test",
-    #     resume="allow"
-    # )
-    # wandb_logger.config.update(dict(lr=0.01, batch_size=1))
+    # wandb
+    Wandb = wandb.init(
+        project= "sepformer-ls",
+        name="test",
+        config=config
+    )
 
     # 模型
     if config["model"]["type"] == "sepformer":
@@ -81,6 +73,10 @@ def main(config):
                           Local_B=config["model"]["sepformer"]["Local_B"])
     else:
         print("No loaded model!")
+
+    if torch.cuda.is_available():
+        model = torch.nn.DataParallel(model, device_ids=[0,1,3])   
+        model.cuda()
 
     if config["optimizer"]["type"] == "sgd":
         optimize = torch.optim.SGD(
@@ -111,15 +107,11 @@ def main(config):
     else:
         print("Not support optimizer")
         return
-    if torch.cuda.is_available():
-        model = torch.nn.DataParallel(model, device_ids=[0,1])   
-        model.cuda()
-        # optimize = torch.nn.DataParallel(optimize, device_ids=[0,1])
-        # optimize.cuda()
-    # wandb.watch(model, log="all")
+
     trainer = Trainer(data, model, optimize, config)
 
     trainer.train()
+
 
 if __name__ == '__main__':
 
@@ -134,12 +126,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     configuration = json5.load(open(args.configuration))
-    configuration['train_dataset']['data_dir'] = f'{MAIN_DIR}/{configuration["train_dataset"]["data_dir"]}'
-    configuration['validation_dataset']['data_dir'] = f'{MAIN_DIR}/{configuration["validation_dataset"]["data_dir"]}'
+    configuration['train_dataset']['data_dir'] = f'{LUNGSOUND_DIR}/{configuration["train_dataset"]["data_dir"]}'
+    configuration['validation_dataset']['data_dir'] = f'{LUNGSOUND_DIR}/{configuration["validation_dataset"]["data_dir"]}'
     configuration["train_dataset"]["train_dir"] = f'{MAIN_DIR}/{configuration["train_dataset"]["train_dir"]}'
     configuration["validation_dataset"]["validation_dir"] = f'{MAIN_DIR}/{configuration["validation_dataset"]["validation_dir"]}'
     configuration["save_load"]["save_folder"] = f'{MAIN_DIR}/{configuration["save_load"]["save_folder"]}'
-
-    print(configuration)
+    # print(configuration)
 
     main(configuration)

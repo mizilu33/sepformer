@@ -3,7 +3,8 @@ from mir_eval.separation import bss_eval_sources
 import numpy as np
 import torch
 from dataset.data import AudioDataLoader, AudioDataset
-from src.pit_criterion import cal_loss
+from torch.utils.data import Dataset, DataLoader
+from src.pit_criterion import cal_loss_pit
 from model.sepformer import Sepformer
 from src.utils import remove_pad
 import json5
@@ -107,12 +108,16 @@ def main(config):
         model.cuda()
 
     # 加载数据
-    dataset = AudioDataset(config["evaluate_dataset"]["data_dir"],
-                           config["evaluate_dataset"]["batch_size"],
+    dataset = AudioDataset(data_dir=config["evaluate_dataset"]["data_dir"],
+                           json_dir=config["evaluate_dataset"]["evaluate_dir"],
+                           batch_size=config["evaluate_dataset"]["batch_size"],
                            sample_rate=config["evaluate_dataset"]["sample_rate"],
-                           segment=config["evaluate_dataset"]["segment"])
+                           segment=config["evaluate_dataset"]["segment"],
+                           start_time=config["evaluate_dataset"]["start_time"])
 
-    data_loader = AudioDataLoader(dataset, batch_size=1, num_workers=2)
+    data_loader = DataLoader(dataset, 
+                                  batch_size=config["evaluate_loader"]["batch_size"],
+                                  num_workers=config["evaluate_loader"]["num_workers"])
 
     # 不计算梯度
     with torch.no_grad():
@@ -121,6 +126,9 @@ def main(config):
 
             # torch.Size([1, 32000]) torch.Size([1]) torch.Size([1, 2, 32000])
             padded_mixture, mixture_lengths, padded_source = data
+            # print("padded_mixture:", padded_mixture)
+            # print("mixture_lengths:", mixture_lengths)
+            # print("padded_source:", padded_source)
 
             # 利用 GPU 运算
             if torch.cuda.is_available():
@@ -131,7 +139,7 @@ def main(config):
             # torch.Size([1, 2, 32000]) => torch.Size([1, 2, 32000])
             estimate_source = model(padded_mixture)  # 将数据放入模型
 
-            loss, max_snr, estimate_source, reorder_estimate_source = cal_loss(padded_source,    # mix
+            loss, max_snr, estimate_source, reorder_estimate_source = cal_loss_pit(padded_source,    # mix
                                                                                estimate_source,  # [s1, s2]
                                                                                mixture_lengths)  # length
 
