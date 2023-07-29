@@ -16,7 +16,7 @@ from const import CUDA_ID, MAIN_DIR, LUNGSOUND_DIR
 import wandb
 from random import randint
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3,2,1,0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3,2"
 
 def main(config):
     torch.manual_seed(config["seed"])
@@ -82,10 +82,6 @@ def main(config):
     else:
         print("No loaded model!")
 
-    if torch.cuda.is_available():
-        model = torch.nn.DataParallel(model, device_ids=[0,1,2,3])   
-        model.cuda()
-
     if config["optimizer"]["type"] == "sgd":
         optimize = torch.optim.SGD(
             params=model.parameters(),
@@ -115,6 +111,11 @@ def main(config):
     else:
         print("Not support optimizer")
         return
+    if torch.cuda.is_available():
+        model = torch.nn.DataParallel(model, device_ids=[0,1])   
+        model.cuda()
+        # optimize = torch.nn.DataParallel(optimize, device_ids=[0,1])
+        # optimize.cuda()
     # wandb.watch(model, log="all")
     trainer = Trainer(data, model, optimize, config)
 
@@ -139,6 +140,6 @@ if __name__ == '__main__':
     configuration["validation_dataset"]["validation_dir"] = f'{MAIN_DIR}/{configuration["validation_dataset"]["validation_dir"]}'
     configuration["save_load"]["save_folder"] = f'{MAIN_DIR}/{configuration["save_load"]["save_folder"]}'
 
-    # print(configuration)
+    print(configuration)
 
     main(configuration)

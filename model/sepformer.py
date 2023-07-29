@@ -5,7 +5,7 @@ from torch.nn.modules.module import Module
 from torch.autograd import Variable
 import math
 import torch.nn.functional as F
-# from const import EncoderLayerID
+from const import EncoderLayerID
 
 
 class Encoder(nn.Module):

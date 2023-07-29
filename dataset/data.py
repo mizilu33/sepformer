@@ -23,6 +23,8 @@ import os
 import librosa
 import random
 from random import randint
+from const import DURATION
+
 
 class AudioDataset(Dataset):
 
@@ -63,7 +65,7 @@ class AudioDataset(Dataset):
                                 mono=True,  # 单通道
                                 # offset=self.start_time,  # 音频读取起始点
                                 offset=0,
-                                duration=10,  # 获取音频时长
+                                duration=DURATION,  # 获取音频时长
                                 dtype=np.float32,
                                 res_type="kaiser_best",
                                 )[0]
@@ -75,7 +77,7 @@ class AudioDataset(Dataset):
                                mono=True,  # 单通道
                                # offset=self.start_time,  # 音频读取起始点
                                offset=0,
-                               duration=10,  # 获取音频时长
+                               duration=DURATION,  # 获取音频时长
                                )[0]
 
         s2_path = os.path.join(self.s2_dir, self.s2_list[item])
@@ -84,12 +86,12 @@ class AudioDataset(Dataset):
                                mono=True,  # 单通道
                                # offset=self.start_time,  # 音频读取起始点
                                offset=0,
-                               duration=10,  # 获取音频时长
+                               duration=DURATION,  # 获取音频时长
                                )[0]
 
         s_data = np.stack((s1_data, s2_data), axis=0)
         # print(length)
-        return mix_data, length, s_data
+        return mix_data, length, s_data, s1_path
 
     def __len__(self):
 

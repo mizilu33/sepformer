@@ -8,3 +8,5 @@ LUNGSOUND_DIR = os.path.dirname(os.path.dirname(MAIN_DIR))
 # print(MAIN_DIR)
 # print(LUNGSOUND_DIR)
 EncoderLayerID = 0
+
+DURATION = 3
