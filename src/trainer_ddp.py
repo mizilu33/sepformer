@@ -13,7 +13,7 @@ import wandb
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "3,0,1,2"
 
-
+import torch.distributed as dist
 class Trainer(object):
     def __init__(self, data, model, optimizer, config):
 
@@ -106,22 +106,18 @@ class Trainer(object):
             print('End of Epoch {0} | Time {1:.2f}s | Train Loss {2:.3f}'.format(epoch+1, run_time, tr_loss))
             print('-' * 85)
             # self.wandb_logger.log('train_loss', tr_loss, on_step=True, on_epoch=True, prog_bar=True,logger=True)
-            if self.checkpoint:
+            # 1. save模型的时候，和DP模式一样，有一个需要注意的点：保存的是model.module而不是model。
+            #    因为model其实是DDP model，参数是被`model=DDP(model)`包起来的。
+            # 2. 我只需要在进程0上保存一次就行了，避免多次保存重复的东西
+            if self.checkpoint and dist.get_rank() == 0:
                 # 保存每一个训练模型
+                # 这里没考虑不是dist分布式训练的情况, 之后改
                 file_path = os.path.join(self.save_folder, 'epoch%d.pth.tar' % (epoch + 1))
-
-                if isinstance(self.model, torch.nn.DataParallel):
-                    torch.save(self.model.module.serialize(self.model.module,
-                                                    self.optimizer,
-                                                    epoch + 1,
-                                                    tr_loss=self.tr_loss,
-                                                    cv_loss=self.cv_loss), file_path)
-                else:
-                    torch.save(self.model.serialize(self.model,
-                                                    self.optimizer,
-                                                    epoch + 1,
-                                                    tr_loss=self.tr_loss,
-                                                    cv_loss=self.cv_loss), file_path)
+                torch.save(self.model.module.serialize(self.model.module,
+                                                self.optimizer,
+                                                epoch + 1,
+                                                tr_loss=self.tr_loss,
+                                                cv_loss=self.cv_loss), file_path)
                 print('Saving checkpoint model to %s' % file_path)
 
             print('Cross validation Start...')
@@ -201,6 +197,8 @@ class Trainer(object):
 
         total_loss = 0
         data_loader = self.tr_loader if not cross_valid else self.cv_loader  # 数据集切换
+        # 新增2：设置sampler的epoch，DistributedSampler需要这个来维持各个进程之间的相同随机数种子
+        data_loader.sampler.set_epoch(epoch)
         for i, (data) in enumerate(data_loader):
 
             padded_mixture, mixture_lengths, padded_source, s1_path = data
@@ -260,3 +258,4 @@ class Trainer(object):
                 print("s1_path:{0}--loss:{1:3f}".format(s1_path, loss.item()))
 
         return total_loss/(i+1)
+

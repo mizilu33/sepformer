@@ -7,7 +7,7 @@
     "train_dir": "data/Libri2Mix/wav8k/min/json_tr100/tr",
     "batch_size": 2,
     "sample_rate": 8000,
-    "segment": -1,
+    "segment": 2,
   },
 
   "validation_dataset":
@@ -16,7 +16,7 @@
     "validation_dir": "data/Libri2Mix/wav8k/min/json_tr100/cv",
     "batch_size": 2,
     "sample_rate": 8000,
-    "segment": -1,
+    "segment": 2,
     "cv_max_len": 15,
   },
 

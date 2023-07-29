@@ -1,1 +1,1 @@
-nohup python -u train.py >>  /home/mzlu/lungsound/sepformer/outlog/0729_1102_tr100_len4.log 2>&1 &
+nohup python -u train.py >> /home/mzlu/lungsound/sepformer/outlog/0729_1102_tr100_len4.log 2>&1 &

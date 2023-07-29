@@ -53,28 +53,23 @@ class AudioDataset(Dataset):
         self.s2_list = os.listdir(os.path.abspath(self.s2_dir))
 
     def __getitem__(self, item):
-        
-        start_time = random.uniform(0, 15-self.segment)   # 10 = 原数据音频长度 - segment
-        # self.start_time = start_time
 
         mix_path = os.path.join(self.mix_dir, self.mix_list[item])
         mix_data = librosa.load(path=mix_path,
                                 sr=self.sample_rate,
                                 mono=True,  # 单通道
-                                offset=start_time,  # 音频读取起始点
-                                # offset=0,
+                                # offset=start_time,  # 音频读取起始点
+                                offset=0,
                                 duration=None,  # 获取音频时长
                                 dtype=np.float32,
                                 res_type="kaiser_best",
                                 )[0]
-        length = len(mix_data)
 
         s1_path = os.path.join(self.s1_dir, self.s1_list[item])
         s1_data = librosa.load(path=s1_path,
                                sr=self.sample_rate,
                                mono=True,  # 单通道
-                               offset=start_time,  # 音频读取起始点
-                               # offset=0,
+                               offset=0, # 音频读取起始点
                                duration=None,  # 获取音频时长
                                )[0]
 
@@ -82,14 +77,33 @@ class AudioDataset(Dataset):
         s2_data = librosa.load(path=s2_path,
                                sr=self.sample_rate,
                                mono=True,  # 单通道
-                               offset=self.start_time,  # 音频读取起始点
-                               # offset=0,
+                               offset=0, # 音频读取起始点
                                duration=None,  # 获取音频时长
                                )[0]
 
-        s_data = np.stack((s1_data, s2_data), axis=0)
+        length = len(mix_data)
+        
+        # 如果length<durantion,从0开始取，若大于，则从length-segment开始取
+        tar_length = self.segment*self.sample_rate
+
+        if length > tar_length:
+            start_time = random.randint(0, length-tar_length)   # start_time = 原数据音频长度 - segment
+            mix_data = mix_data[start_time: start_time + tar_length]
+            s1_data = s1_data[start_time: start_time + tar_length]
+            s2_data = s2_data[start_time: start_time + tar_length]
+            length = tar_length
+
+
+        # s_data = np.stack((s1_data, s2_data), axis=0)  # shape:(2, 4000)
         # print(length)
-        return mix_data, length, s_data, s1_path
+        mix_data = torch.tensor(mix_data)
+        length = torch.tensor(length)
+        s1_data = torch.tensor(s1_data)
+        s2_data = torch.tensor(s2_data)
+        # s1_path = torch.tensor(s1_path)  # ?
+
+        return mix_data, length, s1_data, s2_data, s1_path
+        # return mix_data, length, s_data, s1_path
 
     def __len__(self):
 
